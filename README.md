@@ -10,6 +10,7 @@ The prompt scanner is an explainable heuristic, not a guarantee. **A low scanner
 - `backend/` — FastAPI, SQLAlchemy, SQLite, policy and tool services, and pytest suite.
 - `browser-extension/` — Chrome/Edge extension prototype for gating supported ChatGPT text-file uploads.
 - `docs/API.md` — API workflows and sample request/response shapes.
+- [Setup guide for another Windows laptop](docs/SETUP-ANOTHER-LAPTOP.md) (also available as `Agent-Hijack-Shield-Setup-Guide.pdf` in the repository root).
 
 ## Requirements
 
