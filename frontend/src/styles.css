@@ -322,6 +322,7 @@ tbody tr:last-child td { border-bottom: 0; }
   color-scheme: light;
   color: #202b3c;
   background: #f4f7fb;
+  --display-font: "Arial Black", "Franklin Gothic Heavy", "Segoe UI Black", sans-serif;
   --bg: #f4f7fb;
   --surface: #ffffff;
   --surface-raised: #ffffff;
@@ -339,6 +340,13 @@ tbody tr:last-child td { border-bottom: 0; }
   font-family: Inter, "Segoe UI", Arial, sans-serif;
 }
 body { color: #344054; background: #f4f7fb; }
+h1,h2,h3 {
+  font-family: var(--display-font);
+  font-weight: 800;
+  letter-spacing: .035em;
+  text-transform: uppercase;
+}
+h1 { letter-spacing: .025em; }
 .app-shell { background: var(--bg); }
 .sidebar,.topbar { background: #fff; }
 .sidebar { border-right-color: #e6ebf2; box-shadow: 2px 0 12px #1d355708; }
