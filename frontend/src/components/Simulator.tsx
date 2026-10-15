@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import { api } from "../api";
 import type { ScanResult } from "../types";
 import { DecisionBadge, RiskBadge } from "./Overview";
+import { OpenAIAgent } from "./OpenAIAgent";
 
 const presets = [
   { label: "Safe report", group: "SAFE", content: "Summarize the public quarterly report and highlight its main findings." },
@@ -99,6 +100,7 @@ export function Simulator() {
         </div> : <div className="result-empty"><div className="scan-orb">⌕</div><strong>Awaiting scan input</strong><p>Choose a scenario or write text, then run a scan to see the risk analysis.</p></div>}
       </section>
     </div>
+    <OpenAIAgent />
     <section className="panel demo-cases-panel">
       <div className="panel-heading"><div><h2>End-to-end demo cases</h2><p>Run each labelled request through scan, backend policy, simulated execution, and audit.</p></div><span className="input-tag">A–F TESTS</span></div>
       {caseError && <div className="notice notice-error">{caseError}</div>}

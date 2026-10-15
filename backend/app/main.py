@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import models
 from .db import Base, SessionLocal, engine
 from .services.policy_engine import seed_demo_policies
-from .routers import actions, approvals, contract, evaluations, monitoring, policies, scanning
+from .routers import actions, approvals, contract, evaluations, monitoring, openai_agent, policies, scanning
 
 
 @asynccontextmanager
@@ -39,6 +39,7 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 app.include_router(contract.router)
+app.include_router(openai_agent.router)
 app.include_router(scanning.router)
 app.include_router(policies.router)
 app.include_router(approvals.router)

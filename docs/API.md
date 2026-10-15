@@ -12,6 +12,7 @@ The API uses JSON. All tool actions are simulated. Errors use FastAPI's standard
 | GET | `/tools` | Simulated tool registry and current policy status |
 | POST | `/scan` | Heuristic scan of untrusted text |
 | POST | `/agent/run` | Scan input and request an independently authorized mock tool action |
+| POST | `/agent/openai` | Send an unflagged prompt to OpenAI and mediate tool calls locally |
 | POST | `/tools/authorize` | Direct zero-trust authorization check |
 | GET | `/threats` | Paginated threat records |
 | GET | `/audit` | Searchable/filterable audit records |
@@ -56,6 +57,19 @@ Content-Type: application/json
 ```
 
 The response includes an explicit allow/block/approval decision and reason. Unknown tools and unauthorized arguments are denied by backend policy even if no scan was run or the scanner returned low risk.
+
+## OpenAI agent integration
+
+`POST /api/agent/openai` sends an unflagged prompt to the OpenAI Chat Completions API and mediates requested tool calls through the local policy engine. The backend must have `OPENAI_API_KEY` set in its process environment. `OPENAI_MODEL` is optional and defaults to `gpt-4o-mini`.
+
+```json
+{
+  "prompt": "Summarize the public quarterly report.",
+  "actor": "local-demo"
+}
+```
+
+The prompt is scanned before it is sent to OpenAI. Flagged prompts return `status: "blocked"` without contacting OpenAI. Available tools only read synthetic public demo data or request a simulated email; every tool call is independently authorized, and an approval-required action is not executed. Responses include `status` (`completed`, `blocked`, or `approval_required`), the model, risk level, assistant message, and tool-call decisions. Prompts and synthetic tool results are sent to OpenAI; do not send confidential or personal information.
 
 ## Combined agent request
 

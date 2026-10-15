@@ -130,6 +130,11 @@ class AgentRunRequest(BaseModel):
     approval_id: int | None = None
 
 
+class OpenAIAgentRequest(BaseModel):
+    prompt: str = Field(min_length=1, max_length=12000)
+    actor: str = Field(default="local-demo", min_length=1, max_length=120)
+
+
 class ToolAuthorizeRequest(BaseModel):
     tool_name: str = Field(min_length=1, max_length=80)
     action: str | None = Field(default=None, max_length=80)

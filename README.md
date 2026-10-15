@@ -1,8 +1,8 @@
 # Agent Hijack Shield — Zero-Trust AI Agent Firewall
 
-A local security demo that scans untrusted text for common prompt-injection indicators and independently authorizes every simulated tool action through a backend policy engine. It uses synthetic data and safe mock tools only. It does not send email, access private files, use real credentials, or connect to production systems.
+A local security demo that scans untrusted text for common prompt-injection indicators and independently authorizes every simulated tool action through a backend policy engine. It includes an optional OpenAI API agent integration, which sends prompts to OpenAI after the local scanner check. Integrated tools use synthetic data and safe local mocks only: the app does not send real email, access private files, or connect to production systems.
 
-The prompt scanner is an explainable heuristic, not a guarantee. **A low scanner score never grants permission.** Authorization happens independently in the backend and defaults to deny when a tool or action is not explicitly allowed.
+The prompt scanner is an explainable heuristic, not a guarantee. **A low scanner score never grants permission.** Authorization happens independently in the backend and defaults to deny when a tool or action is not explicitly allowed. The optional OpenAI integration sends prompts and permitted synthetic tool results to OpenAI; do not submit confidential or personal data.
 
 ## Project layout
 
@@ -64,6 +64,19 @@ python -m uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000
 
 Confirm the API health at <http://127.0.0.1:8000/api/health>. Explore and try requests in the interactive API documentation at <http://127.0.0.1:8000/docs>.
 
+To enable the OpenAI agent integration, set your key in this backend terminal before starting Uvicorn:
+
+```powershell
+$secureKey = Read-Host "OpenAI API key" -AsSecureString
+$keyPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureKey)
+try { $env:OPENAI_API_KEY = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($keyPointer) }
+finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($keyPointer) }
+$env:OPENAI_MODEL = "gpt-4o-mini"
+python -m uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+Get an API key from your OpenAI developer account. The secure prompt avoids putting the key directly in shell history; the key is held only in this terminal's environment. Never commit or share it. With the API key configured, open Attack simulator → Connect to OpenAI. The local scanner blocks flagged prompts before transmission. Each model tool call is re-authorized by the local policy engine; available tools use only synthetic data, and simulated email remains approval-gated.
+
 ### 4. Start the React dashboard
 
 In terminal 2, from the project root:
@@ -102,11 +115,12 @@ npm run build
 - **Approval flow:** Run case E in Attack simulator, then review it in Approval center. After approving, return to the simulator and run case E again to request execution. The backend requires a fresh policy check and exact argument binding; a human approval alone does not override current policy.
 - **Scanner-missed attack:** Directly submit a disallowed tool action through Tool firewall. This path demonstrates policy enforcement independent of the text scanner.
 - **Evaluation:** Run labelled scanner and authorization cases; the UI reports measured results, not claimed scanner guarantees.
+- **OpenAI agent:** In Attack simulator → Connect to OpenAI, submit a non-sensitive request. Prompts are sent to OpenAI, while proposed tool calls must pass the local scanner and policy engine before any synthetic tool runs.
 
 ## Configuration and safety
 
 - The default deployment binds to loopback (`127.0.0.1`) and uses local SQLite.
-- Use synthetic demo data only. Never put passwords, API keys, personal information, or real confidential content in the app.
+- Use synthetic demo data only. Never put passwords, API keys, personal information, or real confidential content in prompts. With the OpenAI integration enabled, prompts that are not blocked by the local heuristic are sent to OpenAI.
 - Policy administration and approval endpoints are intentionally suitable only for a local hackathon demonstration. They do not provide production authentication or reviewer identity assurance. Do not expose the API to a network or use it to protect real agents without adding authenticated authorization, secure deployment, and a security review.
 - The baseline scanner may miss attacks and may flag benign content. It is not a substitute for authorization controls.
 
@@ -123,6 +137,8 @@ npm run build
 **Database initialization or locked database errors:** Stop the backend, ensure the project directory is writable, and restart. SQLite files are disposable local demo data; preserve them if you need the audit history. Do not delete them while the API is running.
 
 **Frontend shows API unavailable:** Confirm `http://127.0.0.1:8000/api/health` loads and that `frontend/.env` points to `http://127.0.0.1:8000/api`; restart Vite after changing `.env`.
+
+**OpenAI integration reports it is not configured:** Set `OPENAI_API_KEY` in the same PowerShell terminal used to start the backend, then restart Uvicorn. The key is never entered in the browser UI or stored in SQLite.
 
 ## Four-person GitHub collaboration
 
