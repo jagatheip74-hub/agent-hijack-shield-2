@@ -13,6 +13,7 @@ from ..schemas import (
     AgentRunRequest,
     ApprovalAuthorize,
     ApprovalResolveRequest,
+    ChatGPTUploadRequest,
     EvaluationRunRequest,
     TextScanRequest,
     TextScanResponse,
@@ -103,6 +104,54 @@ def scan_text(request: TextScanRequest, db: Session = Depends(get_db)) -> TextSc
         ),
         request_id=request_id,
     )
+
+
+@router.post("/chatgpt/uploads/authorize")
+def authorize_chatgpt_upload(
+    request: ChatGPTUploadRequest, db: Session = Depends(get_db)
+) -> dict[str, Any]:
+    scan = _scan(request.content)
+    allowed, requires_approval, policy_reason = evaluate_policy(
+        db, "chatgpt_upload_guard", "upload_document"
+    )
+    if scan["flagged"]:
+        decision, reason = "block", "Scanner flagged a high-risk document"
+    elif not allowed:
+        decision, reason = "block", policy_reason
+    elif requires_approval:
+        decision, reason = "approval_required", "This upload policy requires human approval"
+    else:
+        decision, reason = "allow", "Allowed by active upload policy"
+
+    request_id = str(uuid.uuid4())
+    record_event(
+        db,
+        request_id=request_id,
+        event_type="chatgpt_upload_authorization",
+        outcome=decision,
+        detail=f"{request.filename}: {reason}",
+        actor=request.actor,
+    )
+    if decision != "allow":
+        db.add(
+            Threat(
+                category="blocked_upload",
+                severity=scan["risk_level"].lower(),
+                description=reason,
+                source="chatgpt_browser_extension",
+            )
+        )
+    db.commit()
+    risk_level = scan["risk_level"].upper()
+    return {
+        "decision": decision,
+        "allowed": decision == "allow",
+        "reason": reason,
+        "risk_level": risk_level,
+        "risk_score": score_risk_level(risk_level),
+        "matched_indicators": scan["findings"],
+        "request_id": request_id,
+    }
 
 
 @router.post("/tools/authorize")

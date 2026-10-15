@@ -8,6 +8,7 @@ The prompt scanner is an explainable heuristic, not a guarantee. **A low scanner
 
 - `frontend/` — React, TypeScript, Vite security dashboard.
 - `backend/` — FastAPI, SQLAlchemy, SQLite, policy and tool services, and pytest suite.
+- `browser-extension/` — Chrome/Edge extension prototype for gating supported ChatGPT text-file uploads.
 - `docs/API.md` — API workflows and sample request/response shapes.
 
 ## Requirements
@@ -54,13 +55,30 @@ python -m pip install -r backend\requirements.txt
 
 The SQLite database and safe demo policy/tool records are initialized by the application on startup. By default, the generated database is `backend\agent_shield.db`; it stays local and is excluded from Git. The root `.env.example` lists optional process environment settings; Python does not automatically load that file.
 
+### ChatGPT browser upload guard (prototype)
+
+In Chrome or Edge, open `chrome://extensions` or `edge://extensions`, enable **Developer mode**, choose **Load unpacked**, and select the repository's `browser-extension` folder. Copy the extension ID from its details. When starting the backend below, include that extension origin in `CORS_ORIGINS`; the exact command is shown in the backend startup section.
+
+The extension denies uploads unless the backend has an explicit allow policy. After the backend is running, create that local demo policy once in another PowerShell terminal:
+
+```powershell
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/policies -ContentType 'application/json' -Body '{"name":"Allow ChatGPT text uploads","tool":"chatgpt_upload_guard","action":"upload_document","allowed":true,"requires_approval":false,"active":true}'
+```
+
+Reload `chatgpt.com` after installing or reloading the extension. On file-picker selection, the extension holds the upload until the local API returns an allow decision. No active allow policy, a flagged scan, an API error, or an unsupported file blocks the upload.
+
+This prototype covers file-picker selection on ChatGPT only, and only `.txt`, `.md`, `.csv`, and `.json` files up to 48 KiB and 12,000 characters, with at most five files selected at once. It does not inspect PDFs, Office documents, pasted text, drag-and-drop, other ChatGPT domains/apps, or guarantee protection against page changes or alternate upload paths. It is a local demo, not an endpoint security boundary; do not use it for confidential content or production enforcement.
+
 ### 3. Start the FastAPI backend
 
 In terminal 1, from the project root (with the virtual environment active):
 
 ```powershell
+$env:CORS_ORIGINS = "http://127.0.0.1:5173,http://localhost:5173,chrome-extension://<EXTENSION_ID>"
 python -m uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000
 ```
+
+Replace `<EXTENSION_ID>` with the ID shown for the loaded unpacked extension. If you are not using the extension, omit the `CORS_ORIGINS` line.
 
 Confirm the API health at <http://127.0.0.1:8000/api/health>. Explore and try requests in the interactive API documentation at <http://127.0.0.1:8000/docs>.
 

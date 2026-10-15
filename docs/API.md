@@ -11,6 +11,7 @@ The API uses JSON. All tool actions are simulated. Errors use FastAPI's standard
 | GET | `/health` | Backend readiness |
 | GET | `/tools` | Simulated tool registry and current policy status |
 | POST | `/scan` | Heuristic scan of untrusted text |
+| POST | `/chatgpt/uploads/authorize` | Scan and policy-authorize a ChatGPT browser text-file upload |
 | POST | `/agent/run` | Scan input and request an independently authorized mock tool action |
 | POST | `/agent/openai` | Send an unflagged prompt to OpenAI and mediate tool calls locally |
 | POST | `/tools/authorize` | Direct zero-trust authorization check |
@@ -39,6 +40,24 @@ Content-Type: application/json
 ```
 
 The response includes a numeric `risk_score`, `risk_level`, matched indicators, and a human-readable explanation. A scan is advisory and does not authorize tool access.
+
+## Authorize a ChatGPT browser upload
+
+The browser extension posts the supported file's text to this local endpoint before releasing the selected file to ChatGPT:
+
+```http
+POST /api/chatgpt/uploads/authorize
+Content-Type: application/json
+```
+
+```json
+{
+  "filename": "notes.txt",
+  "content": "Non-sensitive text to upload"
+}
+```
+
+The backend returns `allowed: true` only when the scanner does not flag the text and an active policy explicitly allows `chatgpt_upload_guard` / `upload_document` without additional approval. Otherwise it blocks. The route records an audit event. The local demo's policy administration endpoint has no authentication; do not expose it to a network. See the README for loading the prototype extension and creating its local policy.
 
 ## Authorize a simulated tool action
 

@@ -113,6 +113,12 @@ class TextScanRequest(BaseModel):
     source_type: str = Field(default="user_input", max_length=40)
 
 
+class ChatGPTUploadRequest(BaseModel):
+    filename: str = Field(min_length=1, max_length=255)
+    content: str = Field(min_length=1, max_length=12000)
+    actor: str = Field(default="chatgpt-browser-extension", min_length=1, max_length=120)
+
+
 class TextScanResponse(BaseModel):
     risk_score: int
     risk_level: Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"]
