@@ -110,16 +110,16 @@ npm run dev
 
 Open <http://127.0.0.1:5173> in your browser. Leave both terminal servers running while using the app.
 
-### 5. Load the ChatGPT Chrome extension (optional)
+### 5. Load the ChatGPT, Gemini, and Claude Chrome extension (optional)
 
 Keep the backend running on `http://127.0.0.1:8000`, then:
 
 1. Open `chrome://extensions` in Chrome and enable **Developer mode**.
 2. Select **Load unpacked**.
 3. Choose the repository's `extension` folder (for example, `C:\Users\ELCOT\agent-hijack-shield-2\extension`).
-4. Open or refresh <https://chatgpt.com/> (or <https://chat.openai.com/>).
+4. Open or refresh <https://chatgpt.com/>, <https://gemini.google.com/>, or <https://claude.ai/>.
 
-When you submit a message, the extension sends its text to the local `/api/scan` endpoint first. Messages with configured indicators are blocked and show a warning with the scanner risk level, reason, and sentence; clean scans proceed without a notification. The **Blocked history** panel stores up to 50 scanner-blocked prompts and their reasons in Chrome extension local storage across browser restarts. Use **Clear** in that panel to erase the history. If the backend is unavailable or the scanner errors, the extension blocks submission and shows an error. Prompts cleared by the scanner are then sent to ChatGPT as usual. The backend records scan outcomes in the app's audit data. This heuristic can miss attacks and is not a guarantee of safety.
+Before you submit a message in ChatGPT, Gemini, or Claude, the extension sends its text to the local `/api/scan` endpoint. Messages with configured indicators are blocked and show a warning with the scanner risk level, reason, and sentence; clean scans proceed without a notification. The **Blocked history** panel stores up to 50 scanner-blocked prompts and their reasons in Chrome extension local storage across browser restarts. Use **Clear** in that panel to erase the history. If the backend is unavailable or the scanner errors, the extension blocks submission and shows an error. The backend records scan outcomes in the app's audit data. This heuristic can miss attacks and is not a guarantee of safety. Reload the extension and supported chat page after updating it.
 
 The dashboard checks for new flagged scans every five seconds and shows a warning popup with the risk level and detector reasons. For privacy, the dashboard audit event does not contain the prompt sentence; view it in the extension's local Blocked history.
 

@@ -26,7 +26,7 @@ function saveBlockedPrompt(content, scan, sendResponse) {
   });
 }
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "AGENT_SHIELD_GET_HISTORY") {
     readHistory(sendResponse);
     return true;
@@ -43,12 +43,19 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return false;
   }
 
+  const hostname = new URL(sender.url).hostname;
+  const sourceType = hostname === "gemini.google.com"
+    ? "gemini_extension"
+    : hostname === "claude.ai"
+      ? "claude_extension"
+      : "chatgpt_extension";
+
   fetch(SCAN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       content: message.content,
-      source_type: "chatgpt_extension",
+      source_type: sourceType,
     }),
   })
     .then(async (response) => {

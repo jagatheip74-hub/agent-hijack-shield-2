@@ -353,8 +353,9 @@
     requestHistory();
   }
 
-  function composerFor(form) {
-    return form.querySelector(composerSelector);
+  function isVisible(element) {
+    return element.getClientRects().length > 0 &&
+      getComputedStyle(element).visibility !== "hidden";
   }
 
   function promptFrom(composer) {
@@ -362,13 +363,36 @@
     return typeof value === "string" ? value.trim() : "";
   }
 
-  function sendButtonFor(form) {
-    return form.querySelector(sendButtonSelector);
+  function composerForButton(button) {
+    const form = button.form || button.closest("form");
+    if (form) return form.querySelector(composerSelector);
+
+    let container = button.parentElement;
+    for (let depth = 0; container && depth < 8; depth++, container = container.parentElement) {
+      const composers = Array.from(container.querySelectorAll(composerSelector)).filter(isVisible);
+      if (composers.length) return composers[composers.length - 1];
+    }
+    return null;
   }
 
-  function isSendButton(button, form) {
+  function sendButtonFor(composer) {
+    const form = composer.closest("form");
+    if (form) {
+      const button = form.querySelector(sendButtonSelector);
+      if (button && isVisible(button)) return button;
+    }
+
+    let container = composer.parentElement;
+    for (let depth = 0; container && depth < 8; depth++, container = container.parentElement) {
+      const buttons = Array.from(container.querySelectorAll(sendButtonSelector))
+        .filter(button => !button.disabled && isVisible(button));
+      if (buttons.length) return buttons[buttons.length - 1];
+    }
+    return null;
+  }
+
+  function isSendButton(button) {
     return button instanceof HTMLButtonElement &&
-      button.form === form &&
       button.matches(sendButtonSelector);
   }
 
@@ -395,10 +419,10 @@
     return true;
   }
 
-  function scanAndSend(form, button) {
+  function scanAndSend(composer, button) {
     if (scanInProgress) return;
 
-    const content = promptFrom(composerFor(form));
+    const content = promptFrom(composer);
     if (!content) return;
     if (content.length > 12000) {
       showWarning(
@@ -443,11 +467,12 @@
         return;
       }
 
-      const form = button.form;
-      if (!form || !composerFor(form) || !isSendButton(button, form)) return;
+      if (!isSendButton(button)) return;
+      const composer = composerForButton(button);
+      if (!composer) return;
       event.preventDefault();
       event.stopImmediatePropagation();
-      scanAndSend(form, button);
+      scanAndSend(composer, button);
     },
     true,
   );
@@ -465,13 +490,12 @@
       }
 
       const composer = event.target.closest(composerSelector);
-      const form = composer?.closest("form");
-      const button = form && sendButtonFor(form);
-      if (!form || !button || button.disabled) return;
+      const button = composer && sendButtonFor(composer);
+      if (!composer || !button || button.disabled) return;
 
       event.preventDefault();
       event.stopImmediatePropagation();
-      scanAndSend(form, button);
+      scanAndSend(composer, button);
     },
     true,
   );

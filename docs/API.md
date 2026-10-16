@@ -61,7 +61,7 @@ The backend returns `allowed: true` only when the scanner does not flag the text
 
 ## ChatGPT prompt scanner extension
 
-The optional Chrome extension in `extension/` submits ChatGPT prompt text to `POST /api/scan` with `source_type: "chatgpt_extension"` before allowing the ChatGPT page to submit. It blocks prompts with matched indicators and fails closed if the local scanner cannot be reached. Cleared prompts still go to ChatGPT. The extension stores up to 50 scanner-blocked prompt texts and their reasons in Chrome local extension storage across browser restarts; the user can clear this history in the extension panel. The scanner remains a heuristic, not a guarantee.
+The optional Chrome extension in `extension/` submits prompt text from ChatGPT, Gemini, and Claude to `POST /api/scan` before allowing the page to submit. It uses the respective source types `chatgpt_extension`, `gemini_extension`, and `claude_extension`. It blocks prompts with matched indicators and fails closed if the local scanner cannot be reached. Cleared prompts continue to the selected AI service. The extension stores up to 50 scanner-blocked prompt texts and their reasons in Chrome local extension storage across browser restarts; the user can clear this history in the extension panel. The scanner remains a heuristic, not a guarantee.
 
 `GET /api/dashboard/stats` includes the risk level and matched-indicator reason for flagged scans in `recent_events`. The dashboard polls this endpoint every five seconds and displays a popup for newly observed flagged scans. Prompt text is intentionally not included in this API response; it remains only in the extension's local blocked history.
 
