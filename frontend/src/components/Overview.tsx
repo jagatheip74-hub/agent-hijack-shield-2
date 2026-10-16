@@ -46,9 +46,11 @@ export function Overview({ onNavigate }: { onNavigate: (page: PageName) => void 
           lastSeenEventId,
           ...latestEvents.map(event => Number(event.id)).filter(Number.isFinite),
         );
-        const newEvents = latestEvents
-          .filter(event => !initialized || Number(event.id) > lastSeenEventId)
-          .sort((left, right) => Number(right.id) - Number(left.id));
+        const newEvents = initialized
+          ? latestEvents
+            .filter(event => Number(event.id) > lastSeenEventId)
+            .sort((left, right) => Number(right.id) - Number(left.id))
+          : [];
         const suspicious = newEvents.find(isSuspiciousEvent);
         if (suspicious) {
           setThreatAlert({

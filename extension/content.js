@@ -2,8 +2,11 @@
   const composerSelector = 'textarea, [contenteditable="true"], [role="textbox"]';
   const sendButtonSelector =
     'button[type="submit"], button[data-testid*="send" i], button[aria-label*="send" i], button[title*="send" i]';
+  const maxDocumentBytes = 5 * 1024 * 1024;
   let scanInProgress = false;
   let bypassButton = null;
+  const bypassFileInputs = new WeakSet();
+  const busyFileInputs = new WeakSet();
 
   const root = document.createElement("div");
   Object.assign(root.style, {
@@ -396,6 +399,106 @@
       button.matches(sendButtonSelector);
   }
 
+  async function fileAsBase64(file) {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    let binary = "";
+    for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+      binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+    }
+    return btoa(binary);
+  }
+
+  function resumeFiles(input, files) {
+    const transfer = new DataTransfer();
+    files.forEach(file => transfer.items.add(file));
+    input.files = transfer.files;
+    bypassFileInputs.add(input);
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  document.addEventListener(
+    "change",
+    async (event) => {
+      const input = event.target;
+      if (!(input instanceof HTMLInputElement) || input.type !== "file") return;
+      if (bypassFileInputs.has(input)) {
+        bypassFileInputs.delete(input);
+        return;
+      }
+      const files = Array.from(input.files || []);
+      const documentFiles = files.filter(file => /\.(docx|pdf)$/i.test(file.name));
+      if (!documentFiles.length || busyFileInputs.has(input)) return;
+
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      busyFileInputs.add(input);
+      try {
+        for (const file of documentFiles) {
+          if (file.size > maxDocumentBytes) {
+            throw new Error(`${file.name} exceeds the 5 MiB document scan limit.`);
+          }
+          const content_base64 = await fileAsBase64(file);
+          const response = await new Promise((resolve, reject) => {
+            chrome.runtime.sendMessage({
+              type: "AGENT_SHIELD_SCAN_DOCUMENT",
+              filename: file.name,
+              content_base64,
+            }, (result) => {
+              if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+              } else if (!result?.ok || !result.scan) {
+                reject(new Error(result?.error || "The document scan did not complete."));
+              } else {
+                resolve(result);
+              }
+            });
+          });
+          const scan = response.scan;
+          if (
+            !["LOW", "MEDIUM", "HIGH", "CRITICAL"].includes(scan.risk_level) ||
+            !Array.isArray(scan.matched_indicators) ||
+            !scan.matched_indicators.every(indicator => typeof indicator === "string")
+          ) {
+            throw new Error("The scanner returned an invalid document scan response.");
+          }
+          if (scan.risk_level !== "LOW" || scan.matched_indicators.length > 0) {
+            showWarning(
+              scan.risk_level,
+              scan.matched_indicators.join("; ") || "Suspicious activity detected in the document.",
+              `Attachment: ${file.name}`,
+            );
+            input.value = "";
+            return;
+          }
+        }
+        resumeFiles(input, files);
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : "Could not scan the DOCX.";
+        showWarning("HIGH", detail, "Document attachment blocked because scanning failed.");
+        input.value = "";
+      } finally {
+        busyFileInputs.delete(input);
+      }
+    },
+    true,
+  );
+
+  document.addEventListener(
+    "input",
+    (event) => {
+      if (
+        !event.isTrusted ||
+        !(event.target instanceof Element) ||
+        !event.target.closest(composerSelector) ||
+        !promptFrom(event.target.closest(composerSelector))
+      ) {
+        return;
+      }
+      warning.style.display = "none";
+    },
+    true,
+  );
+
   function consumeScanResponse(response, content) {
     if (
       !response?.ok ||
@@ -469,7 +572,7 @@
 
       if (!isSendButton(button)) return;
       const composer = composerForButton(button);
-      if (!composer) return;
+      if (!composer || !promptFrom(composer)) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       scanAndSend(composer, button);
@@ -491,7 +594,7 @@
 
       const composer = event.target.closest(composerSelector);
       const button = composer && sendButtonFor(composer);
-      if (!composer || !button || button.disabled) return;
+      if (!composer || !button || button.disabled || !promptFrom(composer)) return;
 
       event.preventDefault();
       event.stopImmediatePropagation();

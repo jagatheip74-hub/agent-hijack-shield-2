@@ -39,7 +39,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  if (message?.type !== "AGENT_SHIELD_SCAN" || typeof message.content !== "string") {
+  const scanningDocument = message?.type === "AGENT_SHIELD_SCAN_DOCUMENT";
+  if (
+    (message?.type !== "AGENT_SHIELD_SCAN" && !scanningDocument) ||
+    (scanningDocument
+      ? typeof message.filename !== "string" || typeof message.content_base64 !== "string"
+      : typeof message.content !== "string")
+  ) {
     return false;
   }
 
@@ -50,33 +56,44 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       ? "claude_extension"
       : "chatgpt_extension";
 
-  fetch(SCAN_URL, {
+  fetch(scanningDocument ? "http://127.0.0.1:8000/api/scan-document" : SCAN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      content: message.content,
-      source_type: sourceType,
-    }),
+    body: JSON.stringify(scanningDocument
+      ? {
+        filename: message.filename,
+        content_base64: message.content_base64,
+        source_type: `${sourceType}_document`,
+      }
+      : {
+        content: message.content,
+        source_type: sourceType,
+      }),
   })
     .then(async (response) => {
       if (!response.ok) {
-        throw new Error(`Scanner request failed (${response.status}).`);
+        const errorResponse = await response.json().catch(() => null);
+        throw new Error(errorResponse?.detail || `Scanner request failed (${response.status}).`);
       }
-    const scan = await response.json();
-    if (
-      !["LOW", "MEDIUM", "HIGH", "CRITICAL"].includes(scan.risk_level) ||
-      !Array.isArray(scan.matched_indicators) ||
-      !scan.matched_indicators.every((indicator) => typeof indicator === "string")
-    ) {
-      throw new Error("The scanner returned an invalid response.");
-    }
+      const scan = await response.json();
+      if (
+        !["LOW", "MEDIUM", "HIGH", "CRITICAL"].includes(scan.risk_level) ||
+        !Array.isArray(scan.matched_indicators) ||
+        !scan.matched_indicators.every((indicator) => typeof indicator === "string")
+      ) {
+        throw new Error("The scanner returned an invalid response.");
+      }
 
-    if (scan.risk_level !== "LOW" || scan.matched_indicators.length > 0) {
-      saveBlockedPrompt(message.content, scan, sendResponse);
-    } else {
-      sendResponse({ ok: true, scan });
-    }
-  })
+      if (scan.risk_level !== "LOW" || scan.matched_indicators.length > 0) {
+        saveBlockedPrompt(
+          scanningDocument ? `Attachment: ${message.filename}` : message.content,
+          scan,
+          sendResponse,
+        );
+      } else {
+        sendResponse({ ok: true, scan });
+      }
+    })
     .catch((error) => {
       sendResponse({
         ok: false,

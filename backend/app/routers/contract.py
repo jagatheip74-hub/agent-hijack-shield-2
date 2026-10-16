@@ -1,3 +1,5 @@
+import base64
+import binascii
 import json
 import uuid
 from typing import Any
@@ -14,6 +16,7 @@ from ..schemas import (
     ApprovalAuthorize,
     ApprovalResolveRequest,
     ChatGPTUploadRequest,
+    DocumentScanRequest,
     EvaluationRunRequest,
     TextScanRequest,
     TextScanResponse,
@@ -21,6 +24,11 @@ from ..schemas import (
 )
 from ..services.approval_service import create_pending_approval
 from ..services.audit_service import record_event
+from ..services.document_scanner import (
+    MAX_DOCUMENT_BYTES,
+    extract_docx_text,
+    extract_pdf_text,
+)
 from ..services.output_guard import guard_output
 from ..services.policy_engine import evaluate_policy
 from ..services.risk_engine import score_risk_level
@@ -107,6 +115,30 @@ def scan_text(request: TextScanRequest, db: Session = Depends(get_db)) -> TextSc
             else "No configured suspicious patterns matched. This heuristic result is not a guarantee."
         ),
         request_id=request_id,
+    )
+
+
+@router.post("/scan-document", response_model=TextScanResponse)
+def scan_document(request: DocumentScanRequest, db: Session = Depends(get_db)) -> TextScanResponse:
+    extension = request.filename.lower().rsplit(".", 1)[-1] if "." in request.filename else ""
+    if extension not in {"docx", "pdf"}:
+        raise HTTPException(status_code=415, detail="Only DOCX and PDF files are supported for document scanning.")
+    try:
+        content = base64.b64decode(request.content_base64, validate=True)
+    except (binascii.Error, ValueError) as error:
+        raise HTTPException(status_code=400, detail="The document payload is not valid base64.") from error
+    if len(content) > MAX_DOCUMENT_BYTES:
+        raise HTTPException(status_code=413, detail="Documents must not exceed 5 MiB.")
+    try:
+        document_text = (
+            extract_docx_text(content) if extension == "docx" else extract_pdf_text(content)
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+    return scan_text(
+        TextScanRequest(content=document_text, source_type=request.source_type),
+        db,
     )
 
 

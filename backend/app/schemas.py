@@ -113,6 +113,12 @@ class TextScanRequest(BaseModel):
     source_type: str = Field(default="user_input", max_length=40)
 
 
+class DocumentScanRequest(BaseModel):
+    filename: str = Field(min_length=1, max_length=255)
+    content_base64: str = Field(min_length=1, max_length=7_000_000)
+    source_type: str = Field(default="document_upload", max_length=40)
+
+
 class ChatGPTUploadRequest(BaseModel):
     filename: str = Field(min_length=1, max_length=255)
     content: str = Field(min_length=1, max_length=12000)

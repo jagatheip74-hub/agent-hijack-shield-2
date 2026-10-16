@@ -11,6 +11,7 @@ The API uses JSON. All tool actions are simulated. Errors use FastAPI's standard
 | GET | `/health` | Backend readiness |
 | GET | `/tools` | Simulated tool registry and current policy status |
 | POST | `/scan` | Heuristic scan of untrusted text |
+| POST | `/scan-document` | Extract and scan a DOCX or PDF document |
 | POST | `/chatgpt/uploads/authorize` | Scan and policy-authorize a ChatGPT browser text-file upload |
 | POST | `/agent/run` | Scan input and request an independently authorized mock tool action |
 | POST | `/agent/openai` | Send an unflagged prompt to OpenAI and mediate tool calls locally |
@@ -41,6 +42,25 @@ Content-Type: application/json
 
 The response includes a numeric `risk_score`, `risk_level`, matched indicators, and a human-readable explanation. A scan is advisory and does not authorize tool access.
 
+## Scan a DOCX or PDF attachment
+
+The prompt scanner extension posts a selected DOCX or PDF file's base64-encoded bytes to this local endpoint before allowing the attachment through:
+
+```http
+POST /api/scan-document
+Content-Type: application/json
+```
+
+```json
+{
+  "filename": "instructions.pdf",
+  "content_base64": "<base64-encoded DOCX bytes>",
+  "source_type": "chatgpt_extension_document"
+}
+```
+
+The endpoint extracts text from Word XML parts or PDF text objects and returns the same scan response as `/api/scan`. It accepts files up to 5 MiB, scans PDFs of up to 100 pages and up to 12,000 extracted characters, and rejects malformed, unreadable, encrypted, image-only, or oversized documents so the extension can block them. PDF image OCR and other attachment formats are not supported. This heuristic is not a guarantee of safety.
+
 ## ChatGPT browser upload guard
 
 The `browser-extension/` prototype posts the supported file's text to this local endpoint before releasing the selected file to ChatGPT:
@@ -61,7 +81,7 @@ The backend returns `allowed: true` only when the scanner does not flag the text
 
 ## ChatGPT prompt scanner extension
 
-The optional Chrome extension in `extension/` submits prompt text from ChatGPT, Gemini, and Claude to `POST /api/scan` before allowing the page to submit. It uses the respective source types `chatgpt_extension`, `gemini_extension`, and `claude_extension`. It blocks prompts with matched indicators and fails closed if the local scanner cannot be reached. Cleared prompts continue to the selected AI service. The extension stores up to 50 scanner-blocked prompt texts and their reasons in Chrome local extension storage across browser restarts; the user can clear this history in the extension panel. The scanner remains a heuristic, not a guarantee.
+The optional Chrome extension in `extension/` submits prompt text from ChatGPT, Gemini, and Claude to `POST /api/scan` before allowing the page to submit. It scans DOCX and PDF attachments through `POST /api/scan-document` before releasing them. It uses the respective source types `chatgpt_extension`, `gemini_extension`, and `claude_extension`, suffixed with `_document` for document scans. It blocks prompts or supported attachments with matched indicators and fails closed if a document cannot be extracted or the local scanner cannot be reached. Other attachment formats are not inspected. Cleared content continues to the selected AI service. The extension stores up to 50 scanner-blocked prompt texts, document filenames, and their reasons in Chrome local extension storage across browser restarts; the user can clear this history in the extension panel. The scanner remains a heuristic, not a guarantee.
 
 `GET /api/dashboard/stats` includes the risk level and matched-indicator reason for flagged scans in `recent_events`. The dashboard polls this endpoint every five seconds and displays a popup for newly observed flagged scans. Prompt text is intentionally not included in this API response; it remains only in the extension's local blocked history.
 

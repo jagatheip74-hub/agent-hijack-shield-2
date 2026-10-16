@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Agent Hijack Shield for AI Chats",
-  "version": "1.1.0",
-  "description": "Checks prompts in ChatGPT, Gemini, and Claude with the local Agent Hijack Shield scanner before sending.",
+  "version": "1.2.0",
+  "description": "Checks prompts and DOCX/PDF attachments in ChatGPT, Gemini, and Claude with the local Agent Hijack Shield scanner.",
   "host_permissions": [
     "http://127.0.0.1:8000/*"
   ],
