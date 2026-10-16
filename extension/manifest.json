@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Agent Hijack Shield for ChatGPT",
+  "version": "1.0.0",
+  "description": "Checks ChatGPT prompts with the local Agent Hijack Shield scanner before sending.",
+  "host_permissions": [
+    "http://127.0.0.1:8000/*"
+  ],
+  "permissions": [
+    "storage"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

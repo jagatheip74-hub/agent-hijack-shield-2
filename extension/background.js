@@ -1,0 +1,81 @@
+const SCAN_URL = "http://127.0.0.1:8000/api/scan";
+const HISTORY_KEY = "blockedPromptHistory";
+const MAX_HISTORY_ITEMS = 50;
+
+function readHistory(sendResponse) {
+  chrome.storage.local.get({ [HISTORY_KEY]: [] }, (data) => {
+    const history = Array.isArray(data[HISTORY_KEY]) ? data[HISTORY_KEY] : [];
+    sendResponse({ ok: true, history });
+  });
+}
+
+function saveBlockedPrompt(content, scan, sendResponse) {
+  const entry = {
+    content,
+    risk_level: scan.risk_level,
+    reason: scan.matched_indicators.join("; ") || "Suspicious activity detected.",
+    created_at: new Date().toISOString(),
+  };
+
+  chrome.storage.local.get({ [HISTORY_KEY]: [] }, (data) => {
+    const existing = Array.isArray(data[HISTORY_KEY]) ? data[HISTORY_KEY] : [];
+    const history = [entry, ...existing].slice(0, MAX_HISTORY_ITEMS);
+    chrome.storage.local.set({ [HISTORY_KEY]: history }, () => {
+      sendResponse({ ok: true, scan, history_count: history.length });
+    });
+  });
+}
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type === "AGENT_SHIELD_GET_HISTORY") {
+    readHistory(sendResponse);
+    return true;
+  }
+
+  if (message?.type === "AGENT_SHIELD_CLEAR_HISTORY") {
+    chrome.storage.local.set({ [HISTORY_KEY]: [] }, () => {
+      sendResponse({ ok: true, history: [] });
+    });
+    return true;
+  }
+
+  if (message?.type !== "AGENT_SHIELD_SCAN" || typeof message.content !== "string") {
+    return false;
+  }
+
+  fetch(SCAN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      content: message.content,
+      source_type: "chatgpt_extension",
+    }),
+  })
+    .then(async (response) => {
+      if (!response.ok) {
+        throw new Error(`Scanner request failed (${response.status}).`);
+      }
+    const scan = await response.json();
+    if (
+      !["LOW", "MEDIUM", "HIGH", "CRITICAL"].includes(scan.risk_level) ||
+      !Array.isArray(scan.matched_indicators) ||
+      !scan.matched_indicators.every((indicator) => typeof indicator === "string")
+    ) {
+      throw new Error("The scanner returned an invalid response.");
+    }
+
+    if (scan.risk_level !== "LOW" || scan.matched_indicators.length > 0) {
+      saveBlockedPrompt(message.content, scan, sendResponse);
+    } else {
+      sendResponse({ ok: true, scan });
+    }
+  })
+    .catch((error) => {
+      sendResponse({
+        ok: false,
+        error: error instanceof Error ? error.message : "Could not reach the local scanner.",
+      });
+    });
+
+  return true;
+});

@@ -81,7 +81,11 @@ def scan_text(request: TextScanRequest, db: Session = Depends(get_db)) -> TextSc
         request_id=request_id,
         event_type="scan",
         outcome="flagged" if result["flagged"] else "clear",
-        detail=f"{request.source_type}: {result['risk_level']}",
+        detail=(
+            f"{request.source_type}: {result['risk_level']} "
+            f"[risk_level={result['risk_level'].upper()}] "
+            f"[reason={'; '.join(result['findings'])}]"
+        ),
     )
     if result["flagged"]:
         db.add(
@@ -326,11 +330,25 @@ def _risk_from_detail(detail: str) -> str:
     marker = "[risk_level="
     if marker in detail:
         return detail.rsplit(marker, 1)[1].split("]", 1)[0].upper()
+    for level in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
+        if f": {level.lower()}" in detail.lower():
+            return level
     return "HIGH" if "scanner flagged" in detail.lower() else "LOW"
 
 
 def _display_detail(detail: str) -> str:
-    return detail.split(" [risk_level=", 1)[0].split(" [request_id=", 1)[0]
+    return (
+        detail.split(" [risk_level=", 1)[0]
+        .split(" [reason=", 1)[0]
+        .split(" [request_id=", 1)[0]
+    )
+
+
+def _reason_from_detail(detail: str) -> str:
+    marker = "[reason="
+    if marker in detail:
+        return detail.rsplit(marker, 1)[1].split("]", 1)[0]
+    return "Scanner flagged suspicious content"
 
 
 @router.get("/tools")
@@ -382,6 +400,7 @@ def dashboard_stats(db: Session = Depends(get_db)) -> dict[str, Any]:
                 "action": _display_detail(item.detail),
                 "decision": item.outcome,
                 "risk_level": _risk_from_detail(item.detail),
+                "reason": _reason_from_detail(item.detail) if item.outcome == "flagged" else "",
                 "timestamp": item.created_at,
             }
             for item in events

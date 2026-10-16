@@ -41,9 +41,9 @@ Content-Type: application/json
 
 The response includes a numeric `risk_score`, `risk_level`, matched indicators, and a human-readable explanation. A scan is advisory and does not authorize tool access.
 
-## Authorize a ChatGPT browser upload
+## ChatGPT browser upload guard
 
-The browser extension posts the supported file's text to this local endpoint before releasing the selected file to ChatGPT:
+The `browser-extension/` prototype posts the supported file's text to this local endpoint before releasing the selected file to ChatGPT:
 
 ```http
 POST /api/chatgpt/uploads/authorize
@@ -57,7 +57,13 @@ Content-Type: application/json
 }
 ```
 
-The backend returns `allowed: true` only when the scanner does not flag the text and an active policy explicitly allows `chatgpt_upload_guard` / `upload_document` without additional approval. Otherwise it blocks. The route records an audit event. The local demo's policy administration endpoint has no authentication; do not expose it to a network. See the README for loading the prototype extension and creating its local policy.
+The backend returns `allowed: true` only when the scanner does not flag the text and an active policy explicitly allows `chatgpt_upload_guard` / `upload_document` without additional approval. Otherwise it blocks. The route records an audit event. The local demo's policy administration endpoint has no authentication; do not expose it to a network. See the README and [setup guide](SETUP-ANOTHER-LAPTOP.md) for loading the prototype extension and creating its local policy.
+
+## ChatGPT prompt scanner extension
+
+The optional Chrome extension in `extension/` submits ChatGPT prompt text to `POST /api/scan` with `source_type: "chatgpt_extension"` before allowing the ChatGPT page to submit. It blocks prompts with matched indicators and fails closed if the local scanner cannot be reached. Cleared prompts still go to ChatGPT. The extension stores up to 50 scanner-blocked prompt texts and their reasons in Chrome local extension storage across browser restarts; the user can clear this history in the extension panel. The scanner remains a heuristic, not a guarantee.
+
+`GET /api/dashboard/stats` includes the risk level and matched-indicator reason for flagged scans in `recent_events`. The dashboard polls this endpoint every five seconds and displays a popup for newly observed flagged scans. Prompt text is intentionally not included in this API response; it remains only in the extension's local blocked history.
 
 ## Authorize a simulated tool action
 

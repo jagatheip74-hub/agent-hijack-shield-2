@@ -9,6 +9,7 @@ The prompt scanner is an explainable heuristic, not a guarantee. **A low scanner
 - `frontend/` — React, TypeScript, Vite security dashboard.
 - `backend/` — FastAPI, SQLAlchemy, SQLite, policy and tool services, and pytest suite.
 - `browser-extension/` — Chrome/Edge extension prototype for gating supported ChatGPT text-file uploads.
+- `extension/` — unpacked Chrome extension that scans ChatGPT prompts through the local backend before sending.
 - `docs/API.md` — API workflows and sample request/response shapes.
 - [Setup guide for another Windows laptop](docs/SETUP-ANOTHER-LAPTOP.md) (also available as `Agent-Hijack-Shield-Setup-Guide.pdf` in the repository root).
 
@@ -109,7 +110,26 @@ npm run dev
 
 Open <http://127.0.0.1:5173> in your browser. Leave both terminal servers running while using the app.
 
-### 5. Run tests and build checks
+### 5. Load the ChatGPT Chrome extension (optional)
+
+Keep the backend running on `http://127.0.0.1:8000`, then:
+
+1. Open `chrome://extensions` in Chrome and enable **Developer mode**.
+2. Select **Load unpacked**.
+3. Choose the repository's `extension` folder (for example, `C:\Users\ELCOT\agent-hijack-shield-2\extension`).
+4. Open or refresh <https://chatgpt.com/> (or <https://chat.openai.com/>).
+
+When you submit a message, the extension sends its text to the local `/api/scan` endpoint first. Messages with configured indicators are blocked and show a warning with the scanner risk level, reason, and sentence; clean scans proceed without a notification. The **Blocked history** panel stores up to 50 scanner-blocked prompts and their reasons in Chrome extension local storage across browser restarts. Use **Clear** in that panel to erase the history. If the backend is unavailable or the scanner errors, the extension blocks submission and shows an error. Prompts cleared by the scanner are then sent to ChatGPT as usual. The backend records scan outcomes in the app's audit data. This heuristic can miss attacks and is not a guarantee of safety.
+
+The dashboard checks for new flagged scans every five seconds and shows a warning popup with the risk level and detector reasons. For privacy, the dashboard audit event does not contain the prompt sentence; view it in the extension's local Blocked history.
+
+The upload-guard prototype in `browser-extension/` is a separate extension that checks supported text-file uploads against a local scanner and explicit policy. See the [setup guide for another Windows laptop](docs/SETUP-ANOTHER-LAPTOP.md) for its policy and CORS setup, supported file types, and limitations. The prompt scanner extension and file-upload guard are separate prototypes and may be loaded independently.
+
+From the Windows Desktop, use **Agent Hijack Shield Dashboard** to open the main dashboard, or **Agent Shield Audit Log** to open the Audit Log. Both shortcuts start the local API and frontend if they are not already running. The launcher script is `scripts\open-audit-dashboard.ps1`.
+
+To save all audit records as a text file on the Desktop and open it in Notepad, use **Agent Shield Audit Log in Notepad**. The shortcut fetches the audit records in pages, writes `Agent Shield Audit Log.txt` on the Desktop, and opens that file in Notepad. Its script is `scripts\save-audit-log-to-desktop.ps1`.
+
+### 6. Run tests and build checks
 
 In a PowerShell terminal from the project root, activate the virtual environment if needed:
 

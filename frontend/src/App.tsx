@@ -12,17 +12,20 @@ const pages: { name: PageName; icon: string; group: string }[] = [
   { name: "Overview", icon: "◫", group: "MONITOR" },
   { name: "Attack simulator", icon: "⌁", group: "TEST" },
   { name: "Tool firewall", icon: "⬡", group: "CONTROL" },
-  { name: "Policies", icon: "☷", group: "CONTROL" },
-  { name: "Approvals", icon: "◷", group: "CONTROL" },
   { name: "Audit logs", icon: "≡", group: "MONITOR" },
+  { name: "Policies", icon: "⚙", group: "CONTROL" },
+  { name: "Approvals", icon: "◷", group: "CONTROL" },
   { name: "Evaluation", icon: "▧", group: "TEST" },
 ];
 
 export default function App() {
-  const [active, setActive] = useState<PageName>("Overview");
+  const [active, setActive] = useState<PageName>(() => {
+    const requestedPage = new URLSearchParams(window.location.search).get("page");
+    return requestedPage === "audit" ? "Audit logs" : "Overview";
+  });
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const page = {
-    Overview: <Overview />,
+    Overview: <Overview onNavigate={setActive} />,
     "Attack simulator": <Simulator />,
     "Tool firewall": <Firewall />,
     Policies: <Policies />,
@@ -32,24 +35,19 @@ export default function App() {
   }[active];
 
   return (
-    <div className="app-shell">
+    <div className="app-shell gateway-mode">
       <aside className={`sidebar ${mobileNavOpen ? "sidebar-open" : ""}`}>
         <div className="brand">
           <div className="brand-mark"><span>◈</span></div>
-          <div><strong>AGENT<span>SHIELD</span></strong><small>ZERO-TRUST FIREWALL</small></div>
+          <div><strong>AEGIS<span /></strong><small>ZERO-TRUST FIREWALL</small></div>
         </div>
         <div className="nav-list">
-          {["MONITOR", "TEST", "CONTROL"].map(group => (
-            <div className="nav-group" key={group}>
-              <div className="nav-caption">{group}</div>
-              {pages.filter(item => item.group === group).map(item => (
-                <button className={`nav-item ${active === item.name ? "active" : ""}`} key={item.name}
-                  onClick={() => { setActive(item.name); setMobileNavOpen(false); }}>
-                  <span className="nav-icon">{item.icon}</span>{item.name}
-                  {item.name === "Approvals" && <span className="nav-ping" />}
-                </button>
-              ))}
-            </div>
+          {pages.map(item => (
+            <button className={`nav-item ${active === item.name ? "active" : ""}`} key={item.name}
+              onClick={() => { setActive(item.name); setMobileNavOpen(false); }}>
+              <span className="nav-icon">{item.icon}</span>{navLabel(item.name)}
+              {item.name === "Approvals" && <span className="nav-ping" />}
+            </button>
           ))}
         </div>
         <div className="sidebar-footer">
@@ -69,4 +67,12 @@ export default function App() {
       </main>
     </div>
   );
+}
+
+function navLabel(name: PageName) {
+  if (name === "Attack simulator") return "Live Scanner";
+  if (name === "Tool firewall") return "Protected Data";
+  if (name === "Audit logs") return "Audit Log";
+  if (name === "Policies") return "Settings";
+  return name;
 }

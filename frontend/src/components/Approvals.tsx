@@ -9,14 +9,28 @@ export function Approvals() {
   const [busy, setBusy] = useState<string | number | null>(null);
   const [refresh, setRefresh] = useState(0);
   useEffect(() => {
-    api<unknown>("/approvals").then(data => setItems(asList<Approval>(data, ["items", "approvals"]))).catch(e => setError(e.message));
+    let active = true;
+    api<unknown>("/approvals")
+      .then(data => {
+        if (active) setItems(asList<Approval>(data, ["items", "approvals"]));
+      })
+      .catch(e => {
+        if (active) setError(e instanceof Error ? e.message : "Could not load approvals.");
+      });
+    return () => { active = false; };
   }, [refresh]);
   async function resolve(item: Approval, decision: "approve" | "reject") {
     setBusy(item.id); setError("");
     try {
       await api(`/approvals/${encodeURIComponent(String(item.id))}/resolve`, { method: "POST", body: JSON.stringify({ decision, reviewer: "demo-admin" }) });
       setRefresh(n => n + 1);
-    } catch (e) { setError(e instanceof Error ? e.message : "Could not resolve approval."); }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Could not resolve approval.";
+      setError(message === "Approval is not pending"
+        ? "This approval was already resolved. The list has been refreshed."
+        : message);
+      setRefresh(n => n + 1);
+    }
     finally { setBusy(null); }
   }
   const pending = items.filter(item => String(item.status ?? "pending").toLowerCase() === "pending");
